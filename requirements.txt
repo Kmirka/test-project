@@ -4,3 +4,4 @@ python-dotenv
 uvicorn[standart]
 gunicorn
 jinja2
+python-multipart
