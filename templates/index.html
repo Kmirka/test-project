@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="uk" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker - Dark Mode</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Глибокий чорний фон як у топових додатків */
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        /* Стиль для всіх карток */
+        .card {
+            background-color: #1e1e1e;
+            border: 1px solid #2d2d2d;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+
+        /* Кольорові акценти для карток балансу (верхня лінія) */
+        .card-balance { border-top: 5px solid #0dcaf0; }
+        .card-income { border-top: 5px solid #198754; }
+        .card-expense { border-top: 5px solid #dc3545; }
+
+        /* Покращення полів вводу */
+        .form-control, .form-select {
+            background-color: #2a2a2a;
+            border: 1px solid #404040;
+            border-radius: 10px;
+            color: #fff;
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: #2a2a2a;
+            border-color: #0dcaf0;
+            box-shadow: 0 0 0 0.25rem rgba(13, 202, 240, 0.25);
+            color: #fff;
+        }
+
+        /* Стиль таблиці */
+        .table { --bs-table-bg: transparent; color: #e0e0e0; }
+        .table-hover tbody tr:hover { background-color: #2a2a2a; }
+        thead th { color: #888 !important; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px;}
+        
+        /* Кнопка */
+        .btn-primary {
+            background-color: #0d6efd;
+            border: none;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        .btn-primary:hover { background-color: #0b5ed7; }
+    </style>
+</head>
+<body>
+
+<div class="container py-5">
+    <h1 class="text-center mb-5 fw-bold text-white">💎 Expense Tracker</h1>
+
+    <!-- Картки Балансу -->
+    <div class="row mb-5">
+        <div class="col-md-4 mb-3">
+            <div class="card card-balance text-center p-4 h-100">
+                <h6 class="text-muted text-uppercase mb-2">Загальний баланс</h6>
+                <h2 class="fw-bold text-info mb-0">{{ balance }} ₴</h2>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card card-income text-center p-4 h-100">
+                <h6 class="text-muted text-uppercase mb-2">Доходи (+)</h6>
+                <h2 class="fw-bold text-success mb-0">+{{ total_income }} ₴</h2>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card card-expense text-center p-4 h-100">
+                <h6 class="text-muted text-uppercase mb-2">Витрати (-)</h6>
+                <h2 class="fw-bold text-danger mb-0">-{{ total_expense }} ₴</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Форма та Графік -->
+    <div class="row mb-5">
+        <!-- Ліва частина: Форма -->
+        <div class="col-md-7 mb-3">
+            <div class="card p-4 h-100">
+                <h5 class="fw-bold text-white mb-4">Додати операцію</h5>
+                <form action="/add" method="post" class="row g-3">
+                    <div class="col-md-12">
+                        <label class="form-label text-muted small mb-1">Назва</label>
+                        <input type="text" name="title" class="form-control" placeholder="напр. Netflix, Зарплата" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small mb-1">Сума (₴)</label>
+                        <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small mb-1">Тип</label>
+                        <select name="type" class="form-select" required>
+                            <option value="expense">Витрата (-)</option>
+                            <option value="income">Дохід (+)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small mb-1">Категорія</label>
+                        <input type="text" name="category" class="form-control" placeholder="Їжа, Транспорт..." value="Загальне">
+                    </div>
+                    <div class="col-12 mt-4">
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">Додати запис</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Права частина: Графік -->
+        <div class="col-md-5 mb-3">
+            <div class="card p-4 h-100 d-flex flex-column align-items-center justify-content-center">
+                <h5 class="fw-bold text-white mb-3">Статистика витрат</h5>
+                <div style="position: relative; height:220px; width:100%;">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Таблиця транзакцій -->
+    <div class="card p-4">
+        <h5 class="fw-bold text-white mb-4">Історія транзакцій</h5>
+        {% if transactions %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Назва</th>
+                        <th>Категорія</th>
+                        <th>Сума</th>
+                        <th>Тип</th>
+                        <th class="text-end">Дія</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in transactions %}
+                    <tr>
+                        <td class="text-white"><strong>{{ item.title }}</strong></td>
+                        <td><span class="badge bg-secondary rounded-pill">{{ item.category }}</span></td>
+                        <td>
+                            {% if item.type == 'income' %}
+                                <span class="text-success fw-bold">+{{ item.amount }} ₴</span>
+                            {% else %}
+                                <span class="text-danger fw-bold">-{{ item.amount }} ₴</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.type == 'income' %}
+                                <span class="badge bg-success bg-opacity-25 text-success rounded-pill px-3">Дохід</span>
+                            {% else %}
+                                <span class="badge bg-danger bg-opacity-25 text-danger rounded-pill px-3">Витрата</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="/delete/{{ item.id }}" class="btn btn-sm btn-outline-danger" style="border-radius: 8px;">Видалити</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="text-center py-5">
+                <p class="text-muted mb-0">Записи відсутні. Додайте першу операцію!</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // Налаштовуємо глобальний колір тексту для Chart.js (щоб у темній темі було видно підписи)
+    Chart.defaults.color = '#a0a0a0';
+    Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+
+    const labels = {{ cat_labels | safe }};
+    const data = {{ cat_values | safe }};
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+
+    if (data.length > 0) {
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    // Сучасна палітра кольорів
+                    backgroundColor: [
+                        '#ff4757', '#2e86de', '#ffa502', '#2ed573', '#7bed9f', '#3742fa', '#ff7f50'
+                    ],
+                    borderColor: '#1e1e1e', // Колір рамки між секціями як колір картки
+                    borderWidth: 3,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%', // Робить "бублик" більш тонким і сучасним
+                plugins: {
+                    legend: { 
+                        position: 'right',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        document.getElementById('expenseChart').parentElement.innerHTML = 
+            "<p class='text-muted text-center mt-5'>Немає витрат</p>";
+    }
+</script>
+
+</body>
+</html>
